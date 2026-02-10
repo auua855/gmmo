@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Micro Ecosystem: Growth</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #111;
+            color: white;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f0f0f0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #draw-canvas {
+            border: 2px solid #ccc;
+            cursor: crosshair;
+            touch-action: none;
+            background: #fff;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+        }
+
+        .ui-panel {
+            position: absolute;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .interactive {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        #start-ui {
+            text-align: center;
+            color: #444;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        p {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        /* 名前入力欄のスタイル */
+        #name-input {
+            padding: 8px 12px;
+            font-size: 1rem;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+            width: 200px;
+            text-align: center;
+        }
+
+        button {
+            background: #444;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            font-size: 0.9rem;
+            border-radius: 20px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            outline: none;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        #clear-btn {
+            background: #999;
+            margin-right: 10px;
+        }
+
+        #game-ui {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        #stats-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(20, 20, 20, 0.85);
+            padding: 15px;
+            border-radius: 12px;
+            width: 200px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: scale(0.9);
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            color: #eee;
+        }
+
+        #stats-panel.visible {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .stat-label {
+            color: #aaa;
+        }
+
+        .bar-bg {
+            width: 100%;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            margin-top: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: #fff;
+            transition: width 0.3s;
+        }
+
+        #camera-reset-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+        }
+
+        #notification {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="canvas-container">
+        <div id="start-ui">
+            <h1>どんな生き物にする？</h1>
+            <p>黒い線で描いてみて。<br>丸っぽく3Dになるよ。</p>
+
+            <!-- 名前入力欄 -->
+            <input type="text" id="name-input" placeholder="名前 (最大5文字)" maxlength="5">
+            <br>
+
+            <canvas id="draw-canvas" width="300" height="300"></canvas>
+            <div style="margin-top: 20px;">
+                <button id="clear-btn" class="interactive">描き直す</button>
+                <button id="start-btn" class="interactive">命を吹き込む</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-ui" class="ui-panel">
+        <div id="stats-panel" class="interactive">
+            <div class="stat-row"><span class="stat-label">NAME</span><span class="stat-val" id="st-name"
+                    style="font-weight:bold; color:#fff;">---</span></div>
+            <div class="stat-row"><span class="stat-label">TYPE</span><span class="stat-val" id="st-type">---</span>
+            </div>
+            <div class="stat-row"><span class="stat-label">性格</span><span class="stat-val" id="st-pers">---</span></div>
+            <div class="stat-row"><span class="stat-label">HP</span><span class="stat-val" id="st-hp">100</span></div>
+            <div class="bar-bg">
+                <div class="bar-fill" id="bar-hp" style="width: 100%; background: #ff6b6b;"></div>
+            </div>
+            <div style="height: 10px;"></div>
+            <div class="stat-row"><span class="stat-label">攻撃</span><span class="stat-val" id="st-atk">0</span></div>
+            <div class="stat-row"><span class="stat-label">防御</span><span class="stat-val" id="st-def">0</span></div>
+            <div class="stat-row"><span class="stat-label">繁殖</span><span class="stat-val" id="st-rep">0</span></div>
+        </div>
+
+        <button id="camera-reset-btn" class="interactive">◉</button>
+        <div id="notification">メッセージ</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- 設定 ---
+        const WORLD_SIZE = 300;
+        const CREATURE_COUNT = 12; // 他の生物の数
+        const GRASS_COUNT = 800;
+
+        const TYPES = { TENTACLE: 0, SLIME: 1, HUMANOID: 2, ANIMAL: 3 };
+        const TYPE_NAMES = ["触手型", "スライム型", "人型", "動物型"];
+        const PERSONALITY = { PASSIVE: 0, ACTIVE: 1, AGGRESSIVE: 2 };
+        const PERSONALITY_NAMES = ["消極的", "積極的", "攻撃的"];
+
+        // --- 変数 ---
+        let scene, camera, renderer, controls;
+        let creatures = [];
+        let foods = [];
+        let grassMesh;
+        let playerCreature = null;
+        let targetCreature = null;
+        let isGameRunning = false;
+
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let clock = new THREE.Clock();
+
+        // --- 名前生成 ---
+        const KATAKANA = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン";
+        function getRandomName() {
+            const len = 2 + Math.floor(Math.random() * 4); // 2-5文字
+            let name = "";
+            for (let i = 0; i < len; i++) {
+                name += KATAKANA.charAt(Math.floor(Math.random() * KATAKANA.length));
+            }
+            return name;
+        }
+
+        // --- キャンバス描画 ---
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        // 初期化
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 15;
+        ctx.strokeStyle = "#000";
+
+        function getPos(e) {
+            const r = canvas.getBoundingClientRect();
+            return {
+                x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
+                y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top
+            };
+        }
+
+        function startDraw(e) { isDrawing = true; ctx.beginPath(); ctx.moveTo(getPos(e).x, getPos(e).y); e.preventDefault(); }
+        function draw(e) { if (!isDrawing) return; ctx.lineTo(getPos(e).x, getPos(e).y); ctx.stroke(); e.preventDefault(); }
+        function endDraw() { isDrawing = false; }
+
+        canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw); canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('touchstart', startDraw); canvas.addEventListener('touchmove', draw); canvas.addEventListener('touchend', endDraw);
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        });
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const name = document.getElementById('name-input').value; // 名前を取得
+            initGame(imageData, name);
+        });
+
+        // --- 画像処理 & 形状解析 ---
+        function processImageValues(imageData) {
+            const width = imageData.width;
+            const height = imageData.height;
+            const data = imageData.data;
+            const grid = new Uint8Array(width * height); // 1: 黒(物体), 0: 白(背景)
+
+            // 2値化
+            for (let i = 0; i < data.length; i += 4) {
+                // 黒に近いなら1
+                grid[i / 4] = data[i] < 128 ? 1 : 0;
+            }
+
+            // 膨張 (Dilation)
+            const dilated = new Uint8Array(width * height);
+            const kernel = 2; // 半径
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (grid[y * width + x] === 1) {
+                        for (let ky = -kernel; ky <= kernel; ky++) {
+                            for (let kx = -kernel; kx <= kernel; kx++) {
+                                const ny = y + ky, nx = x + kx;
+                                if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+                                    dilated[ny * width + nx] = 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 最大連結成分のみ残す
+            const visited = new Uint8Array(width * height);
+            const queue = [];
+            const blobs = [];
+
+            for (let i = 0; i < dilated.length; i++) {
+                if (dilated[i] === 1 && visited[i] === 0) {
+                    const blobPixels = [];
+                    queue.push(i);
+                    visited[i] = 1;
+                    while (queue.length > 0) {
+                        const idx = queue.pop();
+                        blobPixels.push(idx);
+                        const bx = idx % width;
+                        const by = Math.floor(idx / width);
+                        // 4近傍
+                        [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+                            const nx = bx + dx, ny = by + dy;
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                const nIdx = ny * width + nx;
+                                if (dilated[nIdx] === 1 && visited[nIdx] === 0) {
+                                    visited[nIdx] = 1;
+                                    queue.push(nIdx);
+                                }
+                            }
+                        });
+                    }
+                    blobs.push({ size: blobPixels.length, pixels: blobPixels });
+                }
+            }
+
+            if (blobs.length === 0) return null;
+            blobs.sort((a, b) => b.size - a.size);
+            const mainBlob = blobs[0]; // 最大の塊
+
+            // グリッド再構築 (最大Blobのみ + 穴埋め)
+            const finalGrid = new Uint8Array(width * height);
+            mainBlob.pixels.forEach(idx => finalGrid[idx] = 1);
+
+            // 簡易穴埋め: 外周からFloodFill
+            const fillQueue = [0];
+            const filledVisited = new Uint8Array(width * height);
+            if (finalGrid[0] === 0) filledVisited[0] = 1;
+
+            while (fillQueue.length > 0) {
+                const idx = fillQueue.pop();
+                const bx = idx % width;
+                const by = Math.floor(idx / width);
+
+                [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+                    const nx = bx + dx, ny = by + dy;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        const nIdx = ny * width + nx;
+                        if (finalGrid[nIdx] === 0 && filledVisited[nIdx] === 0) {
+                            filledVisited[nIdx] = 1;
+                            fillQueue.push(nIdx);
+                        }
+                    }
+                });
+            }
+
+            // 反転
+            for (let i = 0; i < finalGrid.length; i++) {
+                finalGrid[i] = (filledVisited[i] === 1) ? 0 : 1;
+            }
+
+            return { grid: finalGrid, width, height };
+        }
+
+        // 2. 輪郭抽出
+        function getContours(grid, width, height) {
+            const resolution = 4; // グリッドサイズ
+            const w = Math.floor(width / resolution);
+            const h = Math.floor(height / resolution);
+
+            // 各セル値を計算
+            const vals = new Uint8Array(w * h);
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    vals[y * w + x] = grid[(y * resolution) * width + (x * resolution)];
+                }
+            }
+
+            const boundaryNodes = [];
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    if (vals[y * w + x] === 1) {
+                        // 境界チェック
+                        if (vals[y * w + (x + 1)] === 0 || vals[y * w + (x - 1)] === 0 || vals[(y + 1) * w + x] === 0 || vals[(y - 1) * w + x] === 0) {
+                            boundaryNodes.push({ x: x * resolution, y: y * resolution });
+                        }
+                    }
+                }
+            }
+
+            if (boundaryNodes.length === 0) return [];
+
+            // 最近傍法でソートしてパス化
+            let currIdx = 0;
+            const path = [boundaryNodes[0]];
+            const used = new Uint8Array(boundaryNodes.length);
+            used[0] = 1;
+
+            for (let i = 0; i < boundaryNodes.length - 1; i++) {
+                let minDist = 999999;
+                let nextIdx = -1;
+                const cp = boundaryNodes[currIdx];
+
+                for (let j = 0; j < boundaryNodes.length; j++) {
+                    if (used[j]) continue;
+                    const tp = boundaryNodes[j];
+                    const d = (cp.x - tp.x) ** 2 + (cp.y - tp.y) ** 2;
+                    // 近すぎる点はスキップ
+                    if (d < 4) { used[j] = 1; continue; }
+
+                    if (d < minDist) {
+                        minDist = d;
+                        nextIdx = j;
+                    }
+                }
+
+                if (nextIdx !== -1) {
+                    path.push(boundaryNodes[nextIdx]);
+                    used[nextIdx] = 1;
+                    currIdx = nextIdx;
+                } else {
+                    break;
+                }
+            }
+
+            // 中心合わせ
+            path.forEach(p => {
+                p.x -= width / 2;
+                p.y -= height / 2;
+                p.y *= -1; // Y反転
+            });
+
+            return path;
+        }
+
+        // 3. 分類ロジック
+        function classifyShape(points) {
+            if (!points || points.length < 10) return TYPES.SLIME;
+
+            // バウンディングボックス & 重心
+            let minX = 1000, maxX = -1000, minY = 1000, maxY = -1000;
+            let cx = 0, cy = 0;
+            points.forEach(p => {
+                if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+                cx += p.x; cy += p.y;
+            });
+            cx /= points.length; cy /= points.length;
+            const w = maxX - minX;
+            const h = maxY - minY;
+            const aspect = w / h; // >1 横長, <1 縦長
+
+            // 突起検出
+            const dists = points.map(p => Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2));
+            const smoothedDists = [];
+            const K = 5;
+            for (let i = 0; i < dists.length; i++) {
+                let sum = 0;
+                for (let k = -K; k <= K; k++) {
+                    let idx = (i + k + dists.length) % dists.length;
+                    sum += dists[idx];
+                }
+                smoothedDists.push(sum / (2 * K + 1));
+            }
+
+            let peaks = [];
+            for (let i = 0; i < smoothedDists.length; i++) {
+                const prev = smoothedDists[(i - 1 + smoothedDists.length) % smoothedDists.length];
+                const curr = smoothedDists[i];
+                const next = smoothedDists[(i + 1) % smoothedDists.length];
+                if (curr > prev && curr > next && curr > Math.max(w, h) * 0.3) {
+                    peaks.push(points[i]);
+                }
+            }
+
+            let top = 0, bottom = 0, left = 0, right = 0;
+            peaks.forEach(p => {
+                if (p.y > maxY * 0.5) top++;
+                if (p.y < minY * 0.5) bottom++;
+                if (p.x < minX * 0.5) left++;
+                if (p.x > maxX * 0.5) right++;
+            });
+
+            if (aspect > 1.2 && bottom >= 2 && (left >= 1 || right >= 1)) { return TYPES.ANIMAL; }
+            if (aspect < 1.3 && top === 1 && bottom >= 2) { return TYPES.HUMANOID; }
+            if (aspect < 1.3 && top === 1 && (left >= 1 && right >= 1)) { return TYPES.HUMANOID; }
+            if (peaks.length >= 5) { return TYPES.TENTACLE; }
+            if (aspect > 3.0 || aspect < 0.3) { return TYPES.TENTACLE; }
+
+            return TYPES.SLIME;
+        }
+
+        // --- メッシュ生成 ---
+        function generateCreatureMesh(imageData, predefinedType, colorOverride) {
+            const proc = processImageValues(imageData);
+            let meshGroup = new THREE.Group();
+            let finalType = TYPES.SLIME;
+            let finalColor = colorOverride || new THREE.Color().setHSL(Math.random(), 0.7, 0.6);
+
+            if (proc) {
+                const points = getContours(proc.grid, proc.width, proc.height);
+                finalType = (predefinedType !== undefined) ? predefinedType : classifyShape(points);
+
+                // シェイプとメッシュ情報の保存用 (合体のため)
+                meshGroup.userData.points = points;
+                meshGroup.userData.origType = finalType;
+                meshGroup.userData.imageData = imageData;
+
+                // Shape作成
+                const shape = new THREE.Shape();
+                if (points.length > 2) {
+                    shape.moveTo(points[0].x * 0.15, points[0].y * 0.15);
+                    for (let i = 1; i < points.length; i++) {
+                        shape.lineTo(points[i].x * 0.15, points[i].y * 0.15);
+                    }
+                    shape.closePath();
+                } else {
+                    shape.absarc(0, 0, 10, 0, Math.PI * 2);
+                }
+
+                // Extrude設定
+                const extrudeSettings = {
+                    steps: 2, depth: 4, bevelEnabled: true,
+                    bevelThickness: 3, bevelSize: 2, bevelSegments: 5
+                };
+
+                if (finalType === TYPES.SLIME) {
+                    extrudeSettings.depth = 8; extrudeSettings.bevelThickness = 5; extrudeSettings.bevelSize = 4;
+                } else if (finalType === TYPES.HUMANOID) {
+                    extrudeSettings.depth = 4;
+                } else if (finalType === TYPES.TENTACLE) {
+                    extrudeSettings.depth = 1; extrudeSettings.bevelThickness = 1;
+                } else if (finalType === TYPES.ANIMAL) {
+                    extrudeSettings.depth = 5;
+                }
+
+                const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                geometry.computeBoundingBox();
+                const center = new THREE.Vector3();
+                geometry.boundingBox.getCenter(center);
+                geometry.translate(-center.x, -center.y, -center.z);
+
+                const material = new THREE.MeshStandardMaterial({
+                    color: finalColor,
+                    roughness: 0.4,
+                    metalness: 0.1,
+                    emissive: 0x000000, emissiveIntensity: 0.5
+                });
+
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                if (finalType === TYPES.TENTACLE) {
+                    mesh.rotation.x = -Math.PI / 2; mesh.position.y = 0.5;
+                } else if (finalType === TYPES.ANIMAL) {
+                    mesh.position.y = 4;
+                } else {
+                    mesh.position.y = (geometry.boundingBox.max.y - geometry.boundingBox.min.y) / 2 + 0.5;
+                }
+
+                meshGroup.add(mesh);
+                meshGroup.scale.set(0.2, 0.2, 0.2);
+
+                const box = new THREE.Box3().setFromObject(meshGroup);
+                const sizeY = box.max.y - box.min.y;
+                meshGroup.userData.sizeY = sizeY;
+                meshGroup.position.y = sizeY / 2;
+
+            } else {
+                const geo = new THREE.SphereGeometry(2, 8, 8);
+                const mat = new THREE.MeshStandardMaterial({ color: finalColor });
+                meshGroup.add(new THREE.Mesh(geo, mat));
+                meshGroup.position.y = 2;
+            }
+
+            return { mesh: meshGroup, type: finalType, color: finalColor };
+        }
+
+        // --- クラス定義 ---
+        class Creature {
+            constructor(isPlayer, meshInfo, x, z, name) {
+                this.isPlayer = isPlayer;
+                this.name = name || getRandomName(); // 名前
+                this.mesh = meshInfo.mesh;
+                this.type = meshInfo.type;
+                this.color = meshInfo.color;
+                this.meshInner = this.mesh.children[0];
+
+                this.maxHp = 100;
+                this.hp = this.maxHp;
+
+                this.atk = Math.floor(Math.random() * 80) + 20;
+                this.def = Math.floor(Math.random() * 80) + 10;
+                this.rep = Math.floor(Math.random() * 80) + 20;
+
+                this.personality = Math.floor(Math.random() * 3);
+
+                this.mesh.position.set(x, this.mesh.position.y, z);
+                scene.add(this.mesh);
+
+                this.target = null;
+                this.state = 'WANDER';
+                this.speed = 0.1 + Math.random() * 0.05;
+                this.animTime = Math.random() * 100;
+                this.actionCooldown = 0;
+                this.peacefulTimer = 0;
+            }
+
+            update(delta) {
+                this.animTime += delta;
+                if (this.actionCooldown > 0) this.actionCooldown -= delta;
+                if (this.peacefulTimer > 0) this.peacefulTimer -= delta;
+
+                this.decideAction();
+                this.move(delta);
+                this.animateDisplay(this.animTime);
+
+                // エフェクト発光
+                let targetEmissive = new THREE.Color(0x000000);
+                if (this.state === 'FRIENDLY') targetEmissive.setHex(0xffff00);
+                else if (this.state === 'COURTSHIP') targetEmissive.setHex(0xff69b4);
+
+                this.meshInner.material.emissive.lerp(targetEmissive, 0.1);
+            }
+
+            decideAction() {
+                if (this.actionCooldown > 0) return;
+
+                if (this.state !== 'MERGING') {
+                    // 何もしていない時にWANDERに戻す
+                    if ((this.state !== 'WANDER' && this.state !== 'EAT' && this.state !== 'FIGHT' && this.state !== 'FRIENDLY' && this.state !== 'COURTSHIP') || !this.target) {
+                        this.state = 'WANDER';
+                    }
+                }
+
+                // ターゲットが既にいるなら続行
+                if (this.target && this.target instanceof Creature && this.target.hp > 0) return;
+                if (this.target && this.target instanceof Food && this.target.active) return;
+
+                this.state = 'WANDER';
+
+                let nearestFood = null, distFood = 50;
+                let nearestCreature = null, distCreature = 50;
+
+                const myPos = this.mesh.position;
+
+                foods.forEach(f => {
+                    if (!f.active) return;
+                    const d = myPos.distanceTo(f.mesh.position);
+                    if (d < distFood) { distFood = d; nearestFood = f; }
+                });
+
+                creatures.forEach(c => {
+                    if (c === this || c.hp <= 0) return;
+                    const d = myPos.distanceTo(c.mesh.position);
+                    if (d < distCreature) { distCreature = d; nearestCreature = c; }
+                });
+
+                const r = Math.random();
+
+                if (nearestCreature) {
+                    if (this.personality === PERSONALITY.PASSIVE) {
+                        if (r < 0.2) this.setTarget('COURTSHIP', nearestCreature);
+                        else if (r < 0.4 && nearestFood) this.setTarget('EAT', nearestFood);
+                        else if (r < 0.6) this.setTarget('FRIENDLY', nearestCreature);
+                        else if (r < 0.8) this.setTarget('FIGHT', nearestCreature);
+                    } else if (this.personality === PERSONALITY.ACTIVE) {
+                        if (r < 0.4) this.setTarget('COURTSHIP', nearestCreature);
+                        else if (r < 0.7) this.setTarget('FRIENDLY', nearestCreature);
+                        else this.setTarget('FIGHT', nearestCreature);
+                    } else if (this.personality === PERSONALITY.AGGRESSIVE) {
+                        if (this.peacefulTimer > 0) {
+                            if (r < 0.5) this.setTarget('COURTSHIP', nearestCreature);
+                            else this.setTarget('FRIENDLY', nearestCreature);
+                        } else {
+                            if (r < 0.2) this.setTarget('COURTSHIP', nearestCreature);
+                            else if (r < 0.25) this.setTarget('FRIENDLY', nearestCreature);
+                            else this.setTarget('FIGHT', nearestCreature);
+                        }
+                    }
+                } else if (nearestFood) {
+                    this.setTarget('EAT', nearestFood);
+                }
+            }
+
+            setTarget(state, target) {
+                this.state = state;
+                this.target = target;
+            }
+
+            move(delta) {
+                if (this.state === 'MERGING') return;
+
+                let dest = new THREE.Vector3();
+                let isMoving = true;
+
+                if (this.target) {
+                    if ((this.target instanceof Creature && this.target.hp <= 0) || (this.target instanceof Food && !this.target.active)) {
+                        this.target = null;
+                        this.state = 'WANDER';
+                    } else {
+                        dest.copy(this.target.mesh ? this.target.mesh.position : this.target.position);
+                        const d = this.mesh.position.distanceTo(dest);
+                        if (d < 4) {
+                            this.interact();
+                            isMoving = false;
+                        }
+                    }
+                }
+
+                if (!this.target && this.state === 'WANDER') {
+                    const t = Date.now() * 0.0002 + this.mesh.id;
+                    dest.set(this.mesh.position.x + Math.sin(t) * 15, 0, this.mesh.position.z + Math.cos(t * 0.7) * 15);
+                    if (this.personality === PERSONALITY.PASSIVE) dest.multiplyScalar(1.2);
+                }
+
+                if (isMoving) {
+                    const dir = new THREE.Vector3().subVectors(dest, this.mesh.position).normalize();
+                    let spd = this.speed;
+                    if (this.personality === PERSONALITY.AGGRESSIVE && this.state === 'FIGHT') spd *= 1.5;
+                    if (this.personality === PERSONALITY.PASSIVE) spd *= 0.8;
+
+                    this.mesh.position.add(dir.multiplyScalar(spd));
+                    const targetAngle = Math.atan2(dir.x, dir.z);
+                    const currentRot = this.mesh.rotation.y;
+                    let diff = targetAngle - currentRot;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    this.mesh.rotation.y += diff * 0.1;
+                }
+            }
+
+            interact() {
+                if (!this.target) return;
+                this.actionCooldown = 1.0;
+
+                if (this.state === 'EAT') {
+                    const food = this.target;
+                    food.active = false;
+                    food.mesh.visible = false;
+                    this.growRandomStat(5);
+                    setTimeout(() => { if (food && food.respawn) food.respawn(); }, 5000);
+                    this.target = null;
+
+                } else if (this.state === 'FRIENDLY') {
+                    const partner = this.target;
+                    if (this === targetCreature || partner === targetCreature) showNotif(this.name + "が友好対話を試みた！");
+
+                    if (partner.personality === PERSONALITY.AGGRESSIVE) {
+                        if (Math.random() < 0.6) {
+                            partner.peacefulTimer = 180;
+                            if (partner === targetCreature || this === targetCreature) showNotif(partner.name + "は賢者モードになった");
+                        }
+                    } else if (partner.state === 'FIGHT' && partner.target === this) {
+                        if (Math.random() < 0.4) {
+                            partner.state = 'WANDER';
+                            partner.target = null;
+                            if (partner === targetCreature || this === targetCreature) showNotif(partner.name + "は戦意をなくした");
+                        }
+                    }
+                    this.state = 'WANDER';
+                    this.target = null;
+
+                } else if (this.state === 'COURTSHIP') {
+                    const partner = this.target;
+                    let successRate = 0;
+                    if (this.rep >= 300 && partner.rep >= 300) successRate = 1.0;
+                    else if (this.rep >= 200 && partner.rep >= 200) successRate = 0.8;
+                    else if (this.rep >= 150 && partner.rep >= 150) successRate = 0.5;
+
+                    // 確率で成功
+                    if (Math.random() < successRate) {
+                        if (this === targetCreature || partner === targetCreature) showNotif("カップル成立！合体！");
+                        this.state = 'MERGING';
+                        partner.state = 'MERGING';
+                        mergeCreatures(this, partner);
+                    } else {
+                        if (this === targetCreature || partner === targetCreature) showNotif("求愛失敗...");
+                        this.actionCooldown = 3.0; // 失敗後のクールダウン
+                    }
+                    if (this.hp > 0) this.state = 'WANDER'; // 生きてれば
+                    this.target = null;
+
+                } else if (this.state === 'FIGHT') {
+                    const enemy = this.target;
+                    const dmg = Math.max(5, this.atk - enemy.def);
+                    enemy.hp -= dmg;
+
+                    if (enemy.personality === PERSONALITY.ACTIVE && Math.random() < 0.8) {
+                        if (enemy.hp > 0) enemy.setTarget('FIGHT', this);
+                    }
+
+                    const bump = new THREE.Vector3().subVectors(enemy.mesh.position, this.mesh.position).normalize().multiplyScalar(0.5);
+                    this.mesh.position.add(bump);
+
+                    if (enemy.hp <= 0) {
+                        scene.remove(enemy.mesh);
+                        this.growRandomStat(5);
+                        if (this === targetCreature) showNotif(enemy.name + "を倒した！");
+                        if (enemy === targetCreature) { targetCreature = null; hideStats(); }
+                    }
+                }
+            }
+
+            growRandomStat(amount) {
+                const r = Math.random();
+                if (r < 0.25) { this.maxHp += amount; this.hp += amount; }
+                else if (r < 0.5) this.atk += amount;
+                else if (r < 0.75) this.def += amount;
+                else this.rep += amount;
+                this.hp = Math.min(this.hp + 20, this.maxHp);
+            }
+
+            animateDisplay(t) {
+                if (this.type === TYPES.HUMANOID) {
+                    const walkCycle = Math.sin(t * 10);
+                    this.meshInner.rotation.z = walkCycle * 0.1;
+                    this.meshInner.position.y = Math.abs(Math.sin(t * 20)) * 0.5;
+                } else if (this.type === TYPES.ANIMAL) {
+                    const runCycle = Math.sin(t * 15);
+                    this.meshInner.rotation.x = runCycle * 0.1;
+                    this.meshInner.position.y = Math.abs(Math.cos(t * 15)) * 0.5;
+                } else if (this.type === TYPES.SLIME) {
+                    const s = 1 + Math.sin(t * 5) * 0.2;
+                    this.meshInner.scale.set(1 / s, s, 1 / s);
+                } else if (this.type === TYPES.TENTACLE) {
+                    const wave = Math.sin(t * 8);
+                    this.meshInner.scale.x = 1 + wave * 0.2;
+                    this.meshInner.scale.y = 1 - wave * 0.2;
+                }
+            }
+        }
+
+        function mergeCreatures(c1, c2) {
+            const newColor = c1.color.clone().lerp(c2.color, 0.5);
+            const parent = Math.random() < 0.5 ? c1 : c2;
+            const imgData = parent.mesh.parent.userData.imageData || null;
+
+            const midX = (c1.mesh.position.x + c2.mesh.position.x) / 2;
+            const midZ = (c1.mesh.position.z + c2.mesh.position.z) / 2;
+
+            scene.remove(c1.mesh);
+            scene.remove(c2.mesh);
+            creatures = creatures.filter(c => c !== c1 && c !== c2);
+            if (targetCreature === c1 || targetCreature === c2) targetCreature = null;
+
+            if (imgData) {
+                const info = generateCreatureMesh(imgData, parent.type, newColor);
+                const baby = new Creature(false, info, midX, midZ);
+
+                const inheritFrom = Math.random() < 0.5 ? c1 : c2;
+                baby.maxHp = inheritFrom.maxHp + 10; baby.hp = baby.maxHp;
+                baby.atk = inheritFrom.atk + 5;
+                baby.def = inheritFrom.def + 5;
+                baby.rep = inheritFrom.rep;
+
+                creatures.push(baby);
+                if (!targetCreature) { targetCreature = baby; showStats(baby); }
+                showNotif("新しい命「" + baby.name + "」が誕生！");
+            } else {
+                spawnRandomCreature(midX, midZ, c1, c2);
+            }
+        }
+
+        class Food {
+            constructor() {
+                this.active = true;
+                const geo = new THREE.DodecahedronGeometry(0.3);
+                const mat = new THREE.MeshLambertMaterial({ color: 0x88ff88 });
+                this.mesh = new THREE.Mesh(geo, mat);
+                this.respawn();
+                scene.add(this.mesh);
+            }
+            respawn() {
+                this.active = true;
+                this.mesh.visible = true;
+                this.mesh.position.set((Math.random() - 0.5) * WORLD_SIZE * 0.8, 1.0, (Math.random() - 0.5) * WORLD_SIZE * 0.8);
+                this.position = this.mesh.position;
+            }
+        }
+
+        // --- ゲーム管理 ---
+        function initGame(playerImage, playerName) {
+            document.getElementById('canvas-container').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block';
+            isGameRunning = true;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xaaccff);
+            scene.fog = new THREE.Fog(0xaaccff, 20, 150);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
+            camera.position.set(0, 40, 60);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            scene.add(hemi);
+            const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+            dir.position.set(50, 100, 50);
+            dir.castShadow = true;
+            dir.shadow.mapSize.width = 2048;
+            dir.shadow.mapSize.height = 2048;
+            scene.add(dir);
+
+            const groundGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x55aa55 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            const grassGeo = new THREE.ConeGeometry(0.2, 0.8, 3);
+            const grassMat = new THREE.MeshLambertMaterial({ color: 0x339933 });
+            grassMesh = new THREE.InstancedMesh(grassGeo, grassMat, GRASS_COUNT);
+            const dummy = new THREE.Object3D();
+            for (let i = 0; i < GRASS_COUNT; i++) {
+                dummy.position.set((Math.random() - 0.5) * WORLD_SIZE, 0.4, (Math.random() - 0.5) * WORLD_SIZE);
+                dummy.rotation.y = Math.random() * Math.PI;
+                dummy.rotation.z = (Math.random() - 0.5) * 0.2;
+                dummy.scale.set(1, 0.5 + Math.random(), 1);
+                dummy.updateMatrix();
+                grassMesh.setMatrixAt(i, dummy.matrix);
+            }
+            scene.add(grassMesh);
+
+            const pInfo = generateCreatureMesh(playerImage);
+            showNotif("あなたの生物は「" + TYPE_NAMES[pInfo.type] + "」です！");
+
+            playerCreature = new Creature(true, pInfo, 0, 0, playerName);
+            creatures.push(playerCreature);
+            targetCreature = playerCreature;
+            showStats(playerCreature);
+
+            for (let i = 0; i < CREATURE_COUNT; i++) {
+                spawnRandomCreature();
+            }
+
+            for (let i = 0; i < 40; i++) foods.push(new Food());
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.1;
+            controls.minDistance = 10;
+            controls.maxDistance = 100;
+
+            window.addEventListener('resize', onResize);
+            document.addEventListener('mousedown', onInput);
+            document.addEventListener('touchstart', (e) => onInput(e.touches[0]));
+
+            renderer.setAnimationLoop(animate);
+        }
+
+        function spawnRandomCreature(x, z, p1, p2) {
+            const size = 64;
+            const c = document.createElement('canvas');
+            c.width = size; c.height = size;
+            const cx = c.getContext('2d');
+            cx.fillStyle = "#fff"; cx.fillRect(0, 0, size, size);
+            cx.fillStyle = "#000";
+
+            cx.beginPath();
+            const points = [];
+            const vertCount = 5 + Math.floor(Math.random() * 5);
+            for (let i = 0; i < vertCount; i++) {
+                const ang = (i / vertCount) * Math.PI * 2;
+                const rad = 10 + Math.random() * 20;
+                points.push({ x: size / 2 + Math.cos(ang) * rad, y: size / 2 + Math.sin(ang) * rad });
+            }
+            cx.moveTo(points[0].x, points[0].y);
+            points.forEach(p => cx.lineTo(p.x, p.y));
+            cx.closePath();
+            cx.fill();
+
+            const imgData = cx.getImageData(0, 0, size, size);
+
+            let color;
+            let forceType = undefined;
+            if (p1 && p2) {
+                forceType = Math.random() > 0.5 ? p1.type : p2.type;
+                color = p1.color.clone().lerp(p2.color, 0.5);
+            } else {
+                color = new THREE.Color().setHSL(Math.random(), 0.6, 0.5);
+            }
+
+            const info = generateCreatureMesh(imgData, forceType, color);
+            const px = x !== undefined ? x : (Math.random() - 0.5) * WORLD_SIZE * 0.8;
+            const pz = z !== undefined ? z : (Math.random() - 0.5) * WORLD_SIZE * 0.8;
+
+            const creature = new Creature(false, info, px, pz);
+            if (p1 && p2) {
+                const inheritFrom = Math.random() < 0.5 ? p1 : p2;
+                creature.maxHp = inheritFrom.maxHp; creature.hp = creature.maxHp;
+                creature.atk = inheritFrom.atk; creature.def = inheritFrom.def;
+                creature.rep = Math.floor((p1.rep + p2.rep) / 2);
+
+                // 性格継承ロジック
+                if ((p1.personality === PERSONALITY.ACTIVE && p2.personality === PERSONALITY.PASSIVE) ||
+                    (p2.personality === PERSONALITY.ACTIVE && p1.personality === PERSONALITY.PASSIVE)) {
+                    creature.personality = PERSONALITY.ACTIVE;
+                } else {
+                    creature.personality = Math.random() > 0.5 ? p1.personality : p2.personality;
+                }
+
+                showNotif("新しい命「" + creature.name + "」が誕生！");
+                if (!targetCreature) { targetCreature = creature; showStats(creature); }
+            }
+            creatures.push(creature);
+        }
+
+        // --- UI & カメラ ---
+        document.getElementById('camera-reset-btn').addEventListener('click', () => {
+            if (playerCreature && playerCreature.hp > 0) {
+                targetCreature = playerCreature;
+                showStats(playerCreature);
+                showNotif("自分の生物に戻ったよ");
+            } else {
+                showNotif("もういないみたい...");
+            }
+        });
+
+        function onInput(e) {
+            if (!isGameRunning) return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            let hit = null;
+
+            for (let i = 0; i < intersects.length; i++) {
+                let obj = intersects[i].object;
+                let found = null;
+                while (obj) {
+                    found = creatures.find(cr => cr.mesh === obj);
+                    if (found) break;
+                    obj = obj.parent;
+                }
+                if (found) { hit = found; break; }
+            }
+
+            if (hit) {
+                targetCreature = hit;
+                showStats(hit);
+            }
+        }
+
+        function showStats(c) {
+            const p = document.getElementById('stats-panel');
+            p.classList.add('visible');
+            document.getElementById('st-name').innerText = c.name;
+            document.getElementById('st-type').innerText = TYPE_NAMES[c.type];
+            document.getElementById('st-pers').innerText = PERSONALITY_NAMES[c.personality];
+
+            document.getElementById('st-hp').innerText = Math.floor(c.hp) + " / " + Math.floor(c.maxHp);
+            let hpPct = (c.hp / c.maxHp) * 100;
+            if (hpPct > 100) hpPct = 100;
+            document.getElementById('bar-hp').style.width = hpPct + "%";
+
+            document.getElementById('st-atk').innerText = c.atk;
+            document.getElementById('st-def').innerText = c.def;
+            document.getElementById('st-rep').innerText = c.rep;
+        }
+
+        function hideStats() {
+            document.getElementById('stats-panel').classList.remove('visible');
+        }
+
+        function showNotif(msg) {
+            const el = document.getElementById('notification');
+            el.innerText = msg;
+            el.style.opacity = 1;
+            setTimeout(() => el.style.opacity = 0, 3000);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- ループ ---
+        function animate() {
+            if (!isGameRunning) return;
+            const delta = clock.getDelta();
+
+            for (let i = creatures.length - 1; i >= 0; i--) {
+                const c = creatures[i];
+                if (c.hp <= 0) {
+                    scene.remove(c.mesh);
+                    creatures.splice(i, 1);
+                    if (c === targetCreature) { targetCreature = null; hideStats(); }
+                    continue;
+                }
+                c.update(delta);
+            }
+
+            if (targetCreature && document.getElementById('stats-panel').classList.contains('visible')) {
+                document.getElementById('st-hp').innerText = Math.floor(targetCreature.hp) + " / " + Math.floor(targetCreature.maxHp);
+                let hpPct = (targetCreature.hp / targetCreature.maxHp) * 100;
+                document.getElementById('bar-hp').style.width = Math.min(hpPct, 100) + "%";
+                document.getElementById('st-atk').innerText = targetCreature.atk;
+                document.getElementById('st-def').innerText = targetCreature.def;
+                document.getElementById('st-rep').innerText = targetCreature.rep;
+            }
+
+            if (targetCreature && targetCreature.mesh) {
+                const tPos = targetCreature.mesh.position.clone();
+                controls.target.lerp(tPos, 0.1);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+
+</html>
